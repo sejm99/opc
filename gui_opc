@@ -1,0 +1,308 @@
+# tkinter 모듈을 tk라는 별칭으로 임포트합니다. GUI 애플리케이션을 만드는 데 사용됩니다.
+import tkinter as tk
+# tkinter.messagebox 모듈에서 messagebox를 임포트합니다. 사용자에게 메시지를 표시하는 팝업 창을 만듭니다.
+from tkinter import messagebox
+# tkinter.filedialog 모듈에서 filedialog를 임포트합니다. 파일 열기/저장 대화 상자를 만듭니다.
+from tkinter import filedialog
+# os 모듈을 임포트합니다. 운영 체제와 상호 작용하는 기능을 제공합니다 (예: 파일 경로 처리).
+import os
+
+# EditableListApp 클래스를 정의합니다. 이 클래스는 GUI 애플리케이션의 모든 기능을 캡슐화합니다.
+class EditableListApp:
+    # 클래스의 생성자입니다. 애플리케이션이 시작될 때 초기 설정을 수행합니다.
+    def __init__(self, root):
+        # Tkinter 루트(메인) 창 객체를 인스턴스 변수로 저장합니다.
+        self.root = root
+        # 루트 창의 제목을 설정합니다.
+        self.root.title("DB 입력 프로그램")
+        
+        # 창의 너비를 500픽셀로 설정합니다.
+        window_width = 500
+        # 창의 높이를 650픽셀로 설정합니다.
+        window_height = 650
+        # 현재 화면의 너비를 가져옵니다.
+        screen_width = self.root.winfo_screenwidth()
+        # 현재 화면의 높이를 가져옵니다.
+        screen_height = self.root.winfo_screenheight()
+        # 창을 화면 중앙에 배치하기 위한 X 좌표를 계산합니다.
+        center_x = int(screen_width/2 - window_width / 2)
+        # 창을 화면 중앙에 배치하기 위한 Y 좌표를 계산합니다.
+        center_y = int(screen_height/2 - window_height / 2)
+        # 계산된 값으로 창의 크기와 위치를 설정합니다 (예: "500x650+중앙X+중앙Y").
+        self.root.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+
+        # DB와 output_Name 입력 프레임
+        # DB 파일명과 output_Name을 표시할 프레임을 생성합니다.
+        self.entry_frame = tk.Frame(root)
+        # 프레임을 창에 배치합니다. 'x' 방향으로 확장하고, 좌우에 10픽셀, 상단에 0픽셀, 하단에 10픽셀의 패딩을 줍니다.
+        self.entry_frame.pack(fill='x', padx=10, pady=(0,10))
+
+        # 스크롤바 포함 캔버스 생성 (많은 항목 처리용)
+        # 스크롤 가능한 영역을 제공하기 위해 캔버스를 생성합니다. 높이를 100으로 설정합니다.
+        self.canvas = tk.Canvas(self.entry_frame, height=100)
+        # 캔버스에 연결될 세로 스크롤바를 생성합니다.
+        self.scrollbar = tk.Scrollbar(self.entry_frame, orient="vertical", command=self.canvas.yview)
+        # 캔버스 내부에 실제 내용을 담을 프레임을 생성합니다. 이 프레임이 스크롤됩니다.
+        self.scrollable_frame = tk.Frame(self.canvas)
+
+        # 스크롤 가능한 프레임의 크기가 변경될 때마다 캔버스의 스크롤 영역을 업데이트하도록 바인딩합니다.
+        self.scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self.canvas.configure(
+                scrollregion=self.canvas.bbox("all")
+            )
+        )
+
+        # 스크롤 가능한 프레임을 캔버스 내부에 생성합니다. (0,0) 위치에 'nw'(북서) 앵커로 배치합니다.
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        # 캔버스의 세로 스크롤 명령을 스크롤바에 연결합니다.
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        # 캔버스를 프레임에 배치합니다. 왼쪽에 배치하고, 양방향으로 확장하며, 공간을 채웁니다.
+        self.canvas.pack(side="left", fill="both", expand=True)
+        # 스크롤바를 프레임에 배치합니다. 오른쪽에 배치하고, 'y' 방향으로 확장하여 공간을 채웁니다.
+        self.scrollbar.pack(side="right", fill="y")
+
+        # DB 파일명 Entry 리스트와 output_Name Entry 리스트 저장
+        # DB 파일명 Entry 위젯들을 저장할 리스트를 초기화합니다.
+        self.db_entries = []
+        # output_Name Entry 위젯들을 저장할 리스트를 초기화합니다.
+        self.output_entries = []
+
+        # Entry 위젯들을 재배치하는 메서드를 호출하여 초기 레이아웃을 설정합니다.
+        self.rearrange_entries()
+
+        # DB 파일 선택 버튼
+        # "DB 파일 선택" 버튼을 생성하고, 클릭 시 add_db_files 메서드를 호출하도록 설정합니다.
+        btn_add_db = tk.Button(root, text="DB 파일 선택", command=self.add_db_files)
+        # 버튼을 창에 배치합니다. 좌우에 10픽셀, 상단에 0픽셀, 하단에 10픽셀의 패딩을 주고, 'w'(서쪽)에 정렬합니다.
+        btn_add_db.pack(padx=10, pady=(0,10), anchor='w')
+
+        # ReticleID 입력 (Text + 세로 스크롤바)
+        # "ReticleID 입력" 레이블을 생성하고 창에 배치합니다.
+        tk.Label(root, text="ReticleID 입력 (여러 줄, 한 줄에 13자 이하):").pack(anchor='w', padx=10, pady=(10,0))
+        # ReticleID 입력을 위한 프레임을 생성합니다.
+        frame_reticle = tk.Frame(root)
+        # 프레임을 창에 배치합니다. 양방향으로 확장하고, 좌우에 10픽셀의 패딩을 줍니다.
+        frame_reticle.pack(fill='both', padx=10, expand=True)
+
+        # 여러 줄 텍스트 입력을 위한 Text 위젯을 생성합니다. 높이를 20줄로 설정하고, 자동 줄바꿈을 비활성화합니다.
+        self.reticle_text = tk.Text(frame_reticle, height=20, wrap='none')
+        # Text 위젯을 프레임에 배치합니다. 왼쪽에 배치하고, 양방향으로 확장하며, 공간을 채웁니다.
+        self.reticle_text.pack(side='left', fill='both', expand=True)
+        # 키보드 입력이 해제될 때마다 limit_reticle_length 메서드를 호출하도록 바인딩합니다.
+        self.reticle_text.bind("<KeyRelease>", self.limit_reticle_length)
+
+        # ReticleID Text 위젯에 연결될 세로 스크롤바를 생성합니다.
+        scrollbar_reticle = tk.Scrollbar(frame_reticle, orient='vertical', command=self.reticle_text.yview)
+        # 스크롤바를 프레임에 배치합니다. 오른쪽에 배치하고, 'y' 방향으로 확장하여 공간을 채웁니다.
+        scrollbar_reticle.pack(side='right', fill='y')
+        # Text 위젯의 세로 스크롤 명령을 스크롤바에 연결합니다.
+        self.reticle_text.config(yscrollcommand=scrollbar_reticle.set)
+
+        # Recipe 입력
+        # "Recipe 입력" 레이블을 생성하고 창에 배치합니다.
+        tk.Label(root, text="Recipe 입력 (1개 이상, 콤마 또는 엔터로 구분):").pack(anchor='w', padx=10, pady=(10,0))
+        # Recipe 입력을 위한 Text 위젯을 생성합니다. 높이를 4줄로 설정합니다.
+        self.recipe_text = tk.Text(root, height=4)
+        # Text 위젯을 창에 배치합니다. 'x' 방향으로 확장하고, 좌우에 10픽셀의 패딩을 줍니다.
+        self.recipe_text.pack(fill='x', padx=10)
+
+        # 완료 버튼
+        # "완료" 버튼을 생성하고, 클릭 시 save_and_exit 메서드를 호출하도록 설정합니다.
+        self.btn_complete = tk.Button(root, text="완료", command=self.save_and_exit)
+        # 버튼을 창에 배치합니다. 상하에 20픽셀의 패딩을 줍니다.
+        self.btn_complete.pack(pady=20)
+
+    # DB 파일을 선택하고 GUI에 추가하는 메서드입니다.
+    def add_db_files(self):
+        # 파일 대화 상자를 열어 여러 DB 파일을 선택하도록 합니다.
+        file_paths = filedialog.askopenfilenames(title="DB 파일 선택")
+        # 파일이 선택되었다면 (취소하지 않았다면)
+        if file_paths:
+            # 현재 작업 디렉토리를 가져옵니다.
+            cwd = os.getcwd()
+            # 선택된 각 파일 경로에 대해 반복합니다.
+            for path in file_paths:
+                # 현재 작업 디렉토리에 대한 상대 경로를 계산합니다.
+                db_name = os.path.relpath(path, cwd)
+                # DB Entry 생성 (수정 가능)
+                # DB 파일명을 표시할 Entry 위젯을 생성합니다.
+                entry = tk.Entry(self.scrollable_frame)
+                # Entry 위젯에 DB 파일명을 삽입합니다.
+                entry.insert(0, db_name)
+                # 생성된 Entry 위젯을 db_entries 리스트에 추가합니다.
+                self.db_entries.append(entry)
+
+                # output_Name Entry 생성 (수정 가능, 기본값 '-')
+                # output_Name을 표시할 Entry 위젯을 생성합니다.
+                output_entry = tk.Entry(self.scrollable_frame)
+                # Entry 위젯에 기본값 '-'를 삽입합니다.
+                output_entry.insert(0, "-")
+                # 생성된 Entry 위젯을 output_entries 리스트에 추가합니다.
+                self.output_entries.append(output_entry)
+
+            # 레이아웃 정리: DB Entry와 output_Name Entry를 나란히 보이도록 재배치
+            # 새로운 Entry 위젯들이 추가되었으므로 레이아웃을 다시 정렬합니다.
+            self.rearrange_entries()
+
+    # DB 파일명과 output_Name Entry 위젯들의 레이아웃을 재정렬하는 메서드입니다.
+    def rearrange_entries(self):
+        # 모든 위젯을 grid로 재배치하여 좌우 컬럼으로 정렬
+        # 스크롤 가능한 프레임 내의 모든 기존 위젯을 제거하여 초기화합니다.
+        for widget in self.scrollable_frame.winfo_children():
+            widget.grid_forget()
+
+        # 스크롤 프레임 내부에 헤더 추가
+        # "DB 파일명 (수정 가능)" 레이블을 첫 번째 행, 첫 번째 열에 배치합니다.
+        tk.Label(self.scrollable_frame, text="DB 파일명 (수정 가능)").grid(row=0, column=0, sticky='ew', padx=2, pady=2)
+        # "output_Name (기본 '-')" 레이블을 첫 번째 행, 두 번째 열에 배치합니다.
+        tk.Label(self.scrollable_frame, text="output_Name (기본 '-')").grid(row=0, column=1, sticky='ew', padx=2, pady=2)
+
+        # db_entries와 output_entries 리스트를 순회하며 각 Entry 위젯을 그리드에 배치합니다.
+        for i, (entry, output_entry) in enumerate(zip(self.db_entries, self.output_entries)):
+            # DB 파일명 Entry를 현재 행(i+1), 첫 번째 열에 배치합니다.
+            entry.grid(row=i + 1, column=0, sticky='ew', padx=2, pady=2)
+            # output_Name Entry를 현재 행(i+1), 두 번째 열에 배치합니다.
+            output_entry.grid(row=i + 1, column=1, sticky='ew', padx=2, pady=2)
+
+        # 첫 번째 열이 사용 가능한 공간의 3/4을 차지하도록 가중치를 설정합니다.
+        self.scrollable_frame.grid_columnconfigure(0, weight=3)
+        # 두 번째 열이 사용 가능한 공간의 1/4을 차지하도록 가중치를 설정합니다.
+        self.scrollable_frame.grid_columnconfigure(1, weight=1)
+
+    # ReticleID 입력 필드의 각 줄 길이를 13자로 제한하는 메서드입니다.
+    def limit_reticle_length(self, event=None):
+        # Text 위젯의 모든 내용을 가져와 줄바꿈 문자로 분리합니다.
+        lines = self.reticle_text.get("1.0", "end-1c").split('\n')
+        # 새로 처리된 줄들을 저장할 리스트를 초기화합니다.
+        new_lines = []
+        # 내용이 변경되었는지 추적하는 플래그입니다.
+        changed = False
+        # 각 줄에 대해 반복합니다.
+        for line in lines:
+            # 줄의 길이가 13자를 초과하는 경우
+            if len(line) > 13:
+                # 줄을 13자까지만 잘라서 new_lines에 추가합니다.
+                new_lines.append(line[:13])
+                # 내용이 변경되었음을 표시합니다.
+                changed = True
+            else:
+                # 13자 이하인 경우 그대로 추가합니다.
+                new_lines.append(line)
+        # 내용이 변경되었다면 Text 위젯을 업데이트합니다.
+        if changed:
+            # 처리된 줄들을 다시 줄바꿈 문자로 연결하여 새 텍스트를 만듭니다.
+            new_text = "\n".join(new_lines)
+            # Text 위젯의 기존 내용을 모두 삭제합니다.
+            self.reticle_text.delete("1.0", "end")
+            # 새 텍스트를 Text 위젯에 삽입합니다.
+            self.reticle_text.insert("1.0", new_text)
+
+    # 텍스트 입력을 파싱하여 항목 리스트로 반환하는 유틸리티 메서드입니다.
+    def parse_input(self, text):
+        # 파싱된 항목들을 저장할 리스트를 초기화합니다.
+        items = []
+        # 텍스트 내의 콤마를 줄바꿈으로 바꾼 다음, 줄바꿈으로 분리하여 각 부분을 처리합니다.
+        for part in text.replace(',', '\n').split('\n'):
+            # 각 부분의 양쪽 공백을 제거합니다.
+            item = part.strip()
+            # 항목이 비어있지 않다면 리스트에 추가합니다.
+            if item:
+                items.append(item)
+        # 파싱된 항목 리스트를 반환합니다.
+        return items
+
+    # 모든 입력 데이터를 수집하고 output.txt 파일로 저장한 후 애플리케이션을 종료하는 메서드입니다.
+    def save_and_exit(self):
+        # DB 파일명과 output_Name 쌍을 저장할 리스트를 초기화합니다.
+        db_output_pairs = []
+        # db_entries와 output_entries 리스트를 순회합니다.
+        for db_entry, out_entry in zip(self.db_entries, self.output_entries):
+            # DB 파일명 Entry의 값을 가져와 공백을 제거합니다.
+            db_val = db_entry.get().strip()
+            # output_Name Entry의 값을 가져와 공백을 제거합니다.
+            out_val = out_entry.get().strip()
+            # DB 파일명이 비어있지 않다면
+            if db_val:
+                # (DB 파일명, output_Name 또는 기본값 '-') 쌍을 리스트에 추가합니다.
+                db_output_pairs.append((db_val, out_val or "-"))
+
+        # db_output_pairs에서 DB 파일명만 추출하여 리스트를 만듭니다.
+        db_items = [db for db, out in db_output_pairs]
+        # db_output_pairs에서 output_Name만 추출하여 리스트를 만듭니다.
+        output_items = [out for db, out in db_output_pairs]
+        # ReticleID Text 위젯의 내용을 가져와 줄바꿈으로 분리합니다.
+        reticle_items = self.reticle_text.get("1.0", "end-1c").split('\n')
+        # 각 줄의 공백을 제거하고 비어있지 않은 줄만 필터링합니다.
+        reticle_items = [line.strip() for line in reticle_items if line.strip()]
+        # Recipe Text 위젯의 내용을 parse_input 메서드를 사용하여 파싱합니다.
+        recipe_items = self.parse_input(self.recipe_text.get("1.0", "end-1c"))
+
+        # 입력 유효성 검사: DB가 1개 미만인 경우 오류 메시지를 표시합니다.
+        if len(db_items) < 1:
+            messagebox.showerror("입력 오류", "DB를 1개 이상 입력하세요.")
+            return
+        # 입력 유효성 검사: ReticleID가 1개 미만인 경우 오류 메시지를 표시합니다.
+        if len(reticle_items) < 1:
+            messagebox.showerror("입력 오류", "ReticleID를 1개 이상 입력하세요.")
+            return
+        # 입력 유효성 검사: 각 ReticleID의 길이가 13자를 초과하는지 확인합니다.
+        for r in reticle_items:
+            if len(r) > 13:
+                messagebox.showerror("입력 오류", f"ReticleID '{r}'가 13자를 초과했습니다.")
+                return
+        # 입력 유효성 검사: Recipe가 1개 미만인 경우 오류 메시지를 표시합니다.
+        if len(recipe_items) < 1:
+            messagebox.showerror("입력 오류", "Recipe를 1개 이상 입력하세요.")
+            return
+
+        # 파일 쓰기 작업을 시도합니다.
+        try:
+            # "output.txt" 파일을 쓰기 모드('w'), UTF-8 인코딩으로 엽니다.
+            with open("output.txt", "w", encoding="utf-8") as f:
+                # "#DB_PATH" 헤더를 파일에 씁니다.
+                f.write("#DB_PATH\n")
+                
+                # Write the common relative directory path
+                # DB 항목이 있다면 공통 상대 경로를 계산하여 씁니다.
+                if db_items:
+                    # os.path.commonpath는 주어진 경로들 중에서 가장 긴 공통 하위 경로를 찾습니다.
+                    # db_items는 이미 상대 경로를 포함하고 있으므로, 이는 공통 상대 디렉토리를 제공할 것입니다.
+                    common_dir_path = os.path.commonpath(db_items)
+                    f.write(f"{common_dir_path}\n")
+                
+                # "#GDS" 헤더를 파일에 씁니다. (요청에 따라 추가된 새 줄)
+                f.write("#GDS\n") # New line as requested
+                # 각 DB 파일명에 대해 반복합니다.
+                for db in db_items:
+                    # 파일의 전체 경로 대신 파일 이름만 추출하여 파일에 씁니다.
+                    f.write(f"{os.path.basename(db)}\n") # Only write the base filename
+                # "#LAYER" 헤더를 파일에 씁니다. (앞에 빈 줄 추가)
+                f.write("\n#LAYER\n")
+                # 각 ReticleID 항목에 대해 반복하여 파일에 씁니다.
+                for reticle in reticle_items:
+                    f.write(reticle + "\n")
+                # "#OPC_Recipe" 헤더를 파일에 씁니다. (앞에 빈 줄 추가)
+                f.write("\n#OPC_Recipe\n")
+                # 각 Recipe 항목에 대해 반복하여 파일에 씁니다.
+                for recipe in recipe_items:
+                    f.write(recipe + "\n")
+
+            # 파일 저장이 성공하면 정보 메시지를 표시합니다.
+            messagebox.showinfo("완료", "output.txt 파일이 생성되었습니다.\n프로그램을 종료합니다.")
+            # 루트 창을 닫아 애플리케이션을 종료합니다.
+            self.root.destroy()
+        # 파일 저장 중 예외(오류)가 발생하면
+        except Exception as e:
+            # 오류 메시지를 표시합니다.
+            messagebox.showerror("오류", f"파일 저장 중 오류가 발생했습니다:\n{e}")
+
+# 스크립트가 직접 실행될 때만 아래 코드를 실행합니다.
+if __name__ == "__main__":
+    # Tkinter 루트 창을 생성합니다.
+    root = tk.Tk()
+    # EditableListApp 클래스의 인스턴스를 생성하여 애플리케이션을 시작합니다.
+    app = EditableListApp(root)
+    # Tkinter 이벤트 루프를 시작합니다. 이 루프는 사용자 상호 작용을 처리하고 GUI를 업데이트합니다.
+    root.mainloop()
